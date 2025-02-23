@@ -24,9 +24,15 @@ struct Cli {
     #[arg(short, long, value_name = "DATETIME", value_parser = parse_time)]
     until: Option<DateTime<Local>>,
 
-    /// Module name
+    /// Skip authored by dependabot[bot]
     #[arg(long, default_value = "false")]
     no_bot: bool,
+    /// Skip authored by root
+    #[arg(long, default_value = "false")]
+    no_root: bool,
+    /// Skip authored by ubuntu
+    #[arg(long, default_value = "false")]
+    no_ubuntu: bool,
 }
 
 fn parse_time(s: &str) -> Result<DateTime<chrono::Local>, String> {
@@ -97,6 +103,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if !cli.no_bot && author_name.contains("dependabot") {
             continue;
         }
+        if !cli.no_root && author_name == "root" {
+            continue;
+        }
+        if !cli.no_ubuntu && author_name == "ubuntu" {
+            continue;
+        }
 
         let tree = commit.tree()?;
         let parent_tree = if commit.parents().len() > 0 {
@@ -142,6 +154,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
     ) in stats
     {
+        if added == 0 && deleted == 0 {
+            continue;
+        }
         if let Some(m) = cli.module.as_ref() {
             println!(
             "{m}\t{author}\t{email}\t{commits}\t{added}\t{deleted}\t 从 {} 年 {} 月至今，共提交 commit {commits} 个， 新增代码 {added} 行, 删除代码 {deleted} 行",

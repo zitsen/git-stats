@@ -1,5 +1,5 @@
 use chrono::{DateTime, Datelike, Local, NaiveDate, TimeZone};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use git2::{DiffOptions, Repository};
 
 use std::collections::HashMap;
@@ -21,8 +21,17 @@ struct Cli {
     #[arg(short, long, value_name = "DATETIME", value_parser = parse_time)]
     since: Option<DateTime<Local>>,
 
+    /// End time
     #[arg(short, long, value_name = "DATETIME", value_parser = parse_time)]
     until: Option<DateTime<Local>>,
+
+    /// Sort by field.
+    #[arg(long, value_enum, default_value = "commits")]
+    sort_by: SortBy,
+
+    /// Sort order
+    #[arg(long, value_enum, default_value = "desc")]
+    order: Order,
 
     /// Skip authored by dependabot[bot]
     #[arg(long, default_value = "false")]
@@ -33,6 +42,28 @@ struct Cli {
     /// Skip authored by ubuntu
     #[arg(long, default_value = "false")]
     no_ubuntu: bool,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum SortBy {
+    /// Author name
+    Name,
+    /// Author E-mail
+    Email,
+    /// Commits
+    Commits,
+    /// Added lines
+    Added,
+    /// Deleted lines
+    Deleted,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum Order {
+    /// Ascending
+    Asc,
+    /// Descending
+    Desc,
 }
 
 fn parse_time(s: &str) -> Result<DateTime<chrono::Local>, String> {
@@ -130,6 +161,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let insertions = diff_status.insertions();
         let deletions = diff_status.deletions();
 
+        if insertions == 0 && deletions == 0 {
+            continue;
+        }
+
         let entry = stats.entry(author_name).or_insert(User {
             email,
             time,
@@ -142,6 +177,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         entry.added += insertions;
         entry.deleted += deletions;
     }
+
+    let mut stats = stats.into_iter().collect::<Vec<_>>();
+    stats.sort_by(|a, b| {
+        let cmp = match cli.sort_by {
+            SortBy::Name => a.0.cmp(&b.0),
+            SortBy::Email => a.1.email.cmp(&b.1.email),
+            SortBy::Commits => a.1.commits.cmp(&b.1.commits),
+            SortBy::Added => a.1.added.cmp(&b.1.added),
+            SortBy::Deleted => a.1.deleted.cmp(&b.1.deleted),
+        };
+        match cli.order {
+            Order::Asc => cmp,
+            Order::Desc => cmp.reverse(),
+        }
+    });
 
     for (
         author,

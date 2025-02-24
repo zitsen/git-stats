@@ -3,7 +3,7 @@
 ## Install
 
 ```bash
-cargo install --freeze git-stats
+cargo install --locked --git https://github.com/zitsen/git-stats
 ```
 
 ## Usage

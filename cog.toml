@@ -1,0 +1,4 @@
+[commit_types]
+fix = { changelog_title = "Hotfixes" }
+enh = { changelog_title = "Enhancements" }
+release = { }
